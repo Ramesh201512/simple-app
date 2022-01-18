@@ -1,0 +1,80 @@
+- hosts: all
+  become: yes
+  become_method: sudo
+  tasks:
+  - name: update server
+    yum:
+     state: latest
+  - name: "Installing Docker Prerequisite packages"
+    yum:
+     name: "{{ item }}"
+     state: latest
+    with_items:
+     - epel-release
+     - yum-utils
+     - device-mapper-persistent-data
+     - lvm2
+     - git
+     - python3
+  - name: install pip for docker sdk installation
+    yum:
+     name: python3-pip
+     state: latest
+  - name: docker sdk installations
+    pip:
+     name: "{{ item }}"
+     state: latest
+    with_items:
+     - docker-py
+     - requests
+     - urllib3
+    vars:
+     ansible_python_interpreter: /usr/bin/python3
+  - name: "Configuring docker-ce repo"
+    get_url:
+     url: https://download.docker.com/linux/centos/docker-ce.repo
+     dest: /etc/yum.repos.d/docker-ce.repo
+  - name: " Installing Docker latest version"
+    yum:
+     name: docker-ce
+     state: present
+  - name: " Starting and Enabling Docker service"
+    service:
+     name: docker
+     state: started
+     enabled: yes
+  - name: sample-app project cloning
+    git:
+     repo: https://github.com/Ramesh201512/simple-app.git
+     dest: /data
+  - name: container remove
+    docker_container:
+      name: sample-project
+      state: absent
+    vars:
+     ansible_python_interpreter: /usr/bin/python3
+  - name: Image remove
+    docker_image:
+     name: sample-app-web
+     state: absent
+     force_absent: yes
+    vars:
+     ansible_python_interpreter: /usr/bin/python3
+  - name: Build Docker image from Dockerfile
+    docker_image:
+      name: sample-app-web
+      path: /data
+      state: present
+      force_source: yes
+    vars:
+     ansible_python_interpreter: /usr/bin/python3
+  - name: Running the container
+    docker_container:
+      image: sample-app-web:latest
+      name: sample-project
+      state: started
+      ports:
+       - 80:80
+    vars:
+     ansible_python_interpreter: /usr/bin/python3
+
